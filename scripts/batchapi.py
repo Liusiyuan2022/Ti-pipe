@@ -1,0 +1,193 @@
+
+from zhipuai import ZhipuAI
+import json
+import os
+import conf
+import base64
+from PIL import Image
+from tqdm import tqdm
+import time
+import re
+
+client = ZhipuAI(api_key=conf.ZHIPU_API_KEY)
+
+# data: 一个整理好的列表类型数据，每个元素对应构造一个请求
+# dump_jsonl: 一个函数，负责将其中的一条数据按特定要求写入jsonl文件，具体的构造方法由这个函数定义
+# 具体要求是：dump_jsonl(i, batch, f)，其中i是当前请求的索引，batch是当前请求的数据，f是打开的文件对象
+# task_tag: 任务标签，用于区分不同的任务
+def create_batch_jsonl(data, dump_jsonl, task_tag):
+    # 创建批量 JSONL 文件
+    file_paths = []
+    m = -1
+    for i, batch in tqdm(enumerate(data), desc="Creating batch requests", total=len(data)):
+        # 如果文件大小超过限制，则创建新的文件
+        if os.path.getsize(file_path) >= conf.BATCH_BYTE_LIMIT or i % conf.BATCH_REQ_LIMIT == 0:
+            m += 1
+            file_path = os.path.join(conf.BATCH_DIR, f"batch_{task_tag}_{m}.jsonl")
+            file_paths.append(file_path)
+            f = open(file_path, 'w')
+         # 向该文件中写入一条请求
+        dump_jsonl(i ,batch, f)
+            
+    return file_paths
+
+
+
+
+def upload_batchfile(file_paths):
+    ids = []
+    for file_path in file_paths:
+        print(f"Uploading {file_path}")
+        upload_file = open(file_path, "rb")
+        
+        result = client.files.create(
+            file=upload_file,
+            purpose="batch"
+        )
+        print(f"Upload success! File ID: {result.id}")
+        ids.append(result.id)
+    return ids
+
+def submit_batch_task(file_ids, task_tag):
+    batch_ids = []
+    for i , file_id in enumerate(file_ids):
+        print(f"Submitting {task_tag} task for file {file_id}")
+        create = client.batches.create(
+            input_file_id=file_id,
+            endpoint="/v4/chat/completions", 
+            auto_delete_input_file=True,
+            metadata={
+                "description": f"{task_tag} Batch {i}"
+            }
+        )
+        batch_ids.append(create.id)
+    batch_id_path = os.path.join(conf.BATCH_DIR, f'batch_ids_{task_tag}.json')
+    # # 记录file_ids为一个json文件，用于后续查询以及下载
+    with open(batch_id_path, 'w') as f:
+        json.dump(batch_ids, f)
+    print(f"Submit Success! batch_ids were saved to {batch_id_path}")
+        
+def check_jobs(batch_ids):
+    output_file_ids = []
+    for batch_id in batch_ids:
+        batch_job = client.batches.retrieve(batch_id)
+        output_file_ids.append(batch_job.output_file_id)
+        if batch_job.status != "completed":
+            print(f"Batch job {batch_id} of the total {len(batch_ids)} jobs is not completed yet. Status: {batch_job.status}")
+            print(f"Download canceled. please check the status later.")
+            return None
+        # print(batch_job)
+    return output_file_ids
+
+def download_output(output_file_ids, task_tag, parse_filter_jsonl):
+    result_path = os.path.join(conf.DATASET_DIR, f'{task_tag}.json')
+    # 清空可能的旧内容
+    with open(result_path, 'w') as f:
+        f.write("")
+    for i, output_file_id in enumerate(output_file_ids):
+        # client.files.content返回 _legacy_response.HttpxBinaryResponseContent实例
+        print(f"downloading output file {output_file_id}")
+        content = client.files.content(output_file_id)
+        # 使用write_to_file方法把返回结果写入文件
+        output_file_path = os.path.join(conf.BATCH_DIR, f"batch_output_{task_tag}_{i}.jsonl")
+        content.write_to_file(output_file_path)
+        print(f"Download success! Content was saved to {output_file_path}")
+        # 以append形式将这些文件逐个写入到result_path
+        print(f"Parsing and filtering JSONL file: {output_file_path}")
+        parse_filter_jsonl(output_file_path, result_path)
+    print(f"All output files were parsed and filtered to {result_path}")
+
+
+# def parse_filter_jsonl(input_path, result_path):
+#     i = 1
+#     tot = 0
+#     low_conf = 0
+#     err_num = 0
+#     fact_srcs = []
+#     print(f"Parsing and Filtering JSONL file: {input_path}")  
+#     with open(input_path, 'r') as f:
+#         for line in f:
+#             data = json.loads(line)
+#             # print(data)
+#             # 检查是否有 "response" 和 "body" 字段
+#             if "response" in data and "body" in data["response"]:
+#                 body = data["response"]["body"]
+                
+#                 if "request_id" in body:
+#                     request_id = body["request_id"]
+#                     # 形如ssource<EEdesign.pdf_0.png>,提取
+#                     pattern = r"source<([^>]*)>"
+#                     match = re.search(pattern, request_id)
+#                     if match:
+#                         source = match.group(1)
+#                     else:
+#                         print(f"Failed to parse request_id at line: {i}, request_id: {request_id}")
+#                         continue
+                
+                
+                
+#                 # 检查是否有 "choices" 字段
+#                 if "choices" in body and len(body["choices"]) > 0:
+#                     content = body["choices"][0]["message"]["content"]
+#                     # 提取 JSON 格式的 "result"
+#                 try:
+#                     stripped_content = content.strip("`json").strip()
+#                     result_data = json.loads(stripped_content)
+                    
+#                     tot += 1
+#                     if "confidence" in result_data:
+#                       confidence = result_data["confidence"]
+#                       if confidence < conf.FACT_THRESHOLD:
+#                           low_conf += 1
+#                           continue
+#                     if "facts" in result_data:
+#                       fact_srcs.append({
+#                             "source": source,
+#                             "facts": result_data["facts"]
+#                         })
+                    
+#                 except json.JSONDecodeError:
+#                     print(f"Failed to parse result content as JSON at line: {i}, stripped_content:\n{stripped_content}")
+#                     err_num += 1
+#             i += 1
+#     print(f"Parsed JSONL file and extracted text content to {input_path}")
+#     print(f"Total : {tot} facts to Parse, Success : {tot-1-err_num} lines, Error : {err_num} lines, Low confidence : {low_conf} lines")
+#     # 将结果写入jsonl文件
+#     with open(result_path, 'a') as out_f:
+#         out_f.write(json.dumps(fact_srcs, ensure_ascii=False) + '\n')
+
+def upload_task(data, dump_jsonl, task_tag):
+    # 创建批量 JSONL 文件
+    file_paths = create_batch_jsonl(data, dump_jsonl, task_tag)
+    if not file_paths:
+        print("No files to upload.")
+        return
+
+    # 上传文件并获取文件 ID
+    file_ids = upload_batchfile(file_paths)
+
+    # 提交任务并获取批次 ID
+    submit_batch_task(file_ids)
+
+
+
+def download_result(parse_filter_jsonl,task_tag):
+    # 从保存的 JSON 文件中加载批次 ID
+    batch_ids_path = os.path.join(conf.BATCH_DIR, f'batch_ids_{task_tag}.json')
+    if not os.path.exists(batch_ids_path):
+        print(f"Batch IDs file not found: {batch_ids_path}")
+        return
+
+    batch_ids = json.load(open(batch_ids_path))
+    
+    # 检查任务状态并获取输出文件 ID
+    output_file_ids = check_jobs(batch_ids)
+    
+    if output_file_ids is None:
+        print("No completed jobs found.")
+        return
+    # print(f"batch_ids: {batch_ids}, output_file_ids: {output_file_ids}")
+    # 下载输出文件
+    download_output(output_file_ids, task_tag, parse_filter_jsonl)
+
+
