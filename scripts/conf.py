@@ -1,0 +1,11 @@
+IMG_PAGE_DIR = "pages"
+PDF_DIR ="pdf_materials"
+MAX_TOKENS = 1024
+DATASET_DIR = "dataset"
+BASE_DIR = "/datacenter/liusiyuan/Ti-pipe"
+BATCH_DIR = "batch"
+BATCH_IMG_NUM = 1
+QA_BATCH_SIZE = 512
+EXTRACT_CHUNK_SIZE = 1
+FACT_THRESHOLD = 7
+QA_QUALITY_THRESHOLD = 8
