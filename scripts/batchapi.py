@@ -101,7 +101,6 @@ def download_output(output_file_ids, task_tag, parse_filter_jsonl):
         content.write_to_file(output_file_path)
         print(f"Download success! Content was saved to {output_file_path}")
         # 以append形式将这些文件逐个写入到result_path
-        print(f"Parsing and filtering JSONL file: {output_file_path}")
         parse_filter_jsonl(output_file_path, result_path)
     print(f"All output files were parsed and filtered to {result_path}")
 

@@ -104,17 +104,21 @@ def parse_filter_jsonl(input_path, result_path):
                 if confidence < conf.FACT_THRESHOLD:
                     low_conf += 1
                     continue
-                fact_srcs.append({
-                    "source": source,
-                    "facts": facts
-                })
+                
+                with open(result_path, 'a') as result_f:
+                    result_f.write(json.dumps({
+                        "source": source,
+                        "facts": facts
+                    }, ensure_ascii=False) + '\n')
                 
             except json.JSONDecodeError:
                 print(f"Failed to parse result content as JSON at line: {i}")
                 err_num += 1
+            except KeyError as e:
+                print(f"KeyError: {e} at line: {i}")
+                err_num += 1
             tot += 1
-    with open(result_path, 'a') as result_f:
-        result_f.write(json.dumps(fact_srcs, ensure_ascii=False) + '\n')
+            i += 1
     print(f"Total lines: {tot}, Low confidence lines: {low_conf}, Errors: {err_num}")
     print(f"Filtered results of {input_path} saved to {result_path}")
     
