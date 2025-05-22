@@ -9,7 +9,7 @@ BATCH_DIR = "batch"
 BATCH_IMG_NUM = 1
 
 # the byte size of the file to be uploaded should be less than 100M
-BATCH_BYTE_LIMIT = 100 * 1024 * 1024
+BATCH_BYTE_LIMIT = 95 * 1024 * 1024
 # the number of requests in a batch should be less than 50k
 BATCH_REQ_LIMIT = 50000
 FACT_THRESHOLD = 7

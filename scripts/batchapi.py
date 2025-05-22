@@ -19,9 +19,10 @@ def create_batch_jsonl(data, dump_jsonl, task_tag):
     # 创建批量 JSONL 文件
     file_paths = []
     m = -1
+    file_path = None
     for i, batch in tqdm(enumerate(data), desc="Creating batch requests", total=len(data)):
         # 如果文件大小超过限制，则创建新的文件
-        if os.path.getsize(file_path) >= conf.BATCH_BYTE_LIMIT or i % conf.BATCH_REQ_LIMIT == 0:
+        if file_path is None or i % conf.BATCH_REQ_LIMIT == 0 or os.path.getsize(file_path) >= conf.BATCH_BYTE_LIMIT:
             m += 1
             file_path = os.path.join(conf.BATCH_DIR, f"batch_{task_tag}_{m}.jsonl")
             file_paths.append(file_path)
@@ -69,21 +70,28 @@ def submit_batch_task(file_ids, task_tag):
         
 def check_jobs(batch_ids):
     output_file_ids = []
+    statuses = []
     for batch_id in batch_ids:
         batch_job = client.batches.retrieve(batch_id)
         output_file_ids.append(batch_job.output_file_id)
-        if batch_job.status != "completed":
-            print(f"Batch job {batch_id} of the total {len(batch_ids)} jobs is not completed yet. Status: {batch_job.status}")
-            print(f"Download canceled. please check the status later.")
+        statuses.append(batch_job.status)
+    print("Batch job statuses:")
+    for (id, status) in zip(batch_ids, statuses):
+        print(f"Batch ID: {id}, Status: {status}")
+    for i, status in enumerate(statuses):
+        if status != "completed":
+            print(f"The {i}th batch task is still in {status}, waiting for completion...")
+            print("Donwload canceled.")
             return None
-        # print(batch_job)
+    print("All batch jobs are completed!")
     return output_file_ids
 
 def download_output(output_file_ids, task_tag, parse_filter_jsonl):
-    result_path = os.path.join(conf.DATASET_DIR, f'{task_tag}.json')
+    result_path = os.path.join(conf.DATASET_DIR, f'{task_tag}.jsonl')
     # 清空可能的旧内容
     with open(result_path, 'w') as f:
         f.write("")
+    # 遍历每个输出文件 ID，下载并解析
     for i, output_file_id in enumerate(output_file_ids):
         # client.files.content返回 _legacy_response.HttpxBinaryResponseContent实例
         print(f"downloading output file {output_file_id}")
@@ -97,65 +105,6 @@ def download_output(output_file_ids, task_tag, parse_filter_jsonl):
         parse_filter_jsonl(output_file_path, result_path)
     print(f"All output files were parsed and filtered to {result_path}")
 
-
-# def parse_filter_jsonl(input_path, result_path):
-#     i = 1
-#     tot = 0
-#     low_conf = 0
-#     err_num = 0
-#     fact_srcs = []
-#     print(f"Parsing and Filtering JSONL file: {input_path}")  
-#     with open(input_path, 'r') as f:
-#         for line in f:
-#             data = json.loads(line)
-#             # print(data)
-#             # 检查是否有 "response" 和 "body" 字段
-#             if "response" in data and "body" in data["response"]:
-#                 body = data["response"]["body"]
-                
-#                 if "request_id" in body:
-#                     request_id = body["request_id"]
-#                     # 形如ssource<EEdesign.pdf_0.png>,提取
-#                     pattern = r"source<([^>]*)>"
-#                     match = re.search(pattern, request_id)
-#                     if match:
-#                         source = match.group(1)
-#                     else:
-#                         print(f"Failed to parse request_id at line: {i}, request_id: {request_id}")
-#                         continue
-                
-                
-                
-#                 # 检查是否有 "choices" 字段
-#                 if "choices" in body and len(body["choices"]) > 0:
-#                     content = body["choices"][0]["message"]["content"]
-#                     # 提取 JSON 格式的 "result"
-#                 try:
-#                     stripped_content = content.strip("`json").strip()
-#                     result_data = json.loads(stripped_content)
-                    
-#                     tot += 1
-#                     if "confidence" in result_data:
-#                       confidence = result_data["confidence"]
-#                       if confidence < conf.FACT_THRESHOLD:
-#                           low_conf += 1
-#                           continue
-#                     if "facts" in result_data:
-#                       fact_srcs.append({
-#                             "source": source,
-#                             "facts": result_data["facts"]
-#                         })
-                    
-#                 except json.JSONDecodeError:
-#                     print(f"Failed to parse result content as JSON at line: {i}, stripped_content:\n{stripped_content}")
-#                     err_num += 1
-#             i += 1
-#     print(f"Parsed JSONL file and extracted text content to {input_path}")
-#     print(f"Total : {tot} facts to Parse, Success : {tot-1-err_num} lines, Error : {err_num} lines, Low confidence : {low_conf} lines")
-#     # 将结果写入jsonl文件
-#     with open(result_path, 'a') as out_f:
-#         out_f.write(json.dumps(fact_srcs, ensure_ascii=False) + '\n')
-
 def upload_task(data, dump_jsonl, task_tag):
     # 创建批量 JSONL 文件
     file_paths = create_batch_jsonl(data, dump_jsonl, task_tag)
@@ -167,7 +116,7 @@ def upload_task(data, dump_jsonl, task_tag):
     file_ids = upload_batchfile(file_paths)
 
     # 提交任务并获取批次 ID
-    submit_batch_task(file_ids)
+    submit_batch_task(file_ids, task_tag)
 
 
 
@@ -184,10 +133,21 @@ def download_result(parse_filter_jsonl,task_tag):
     output_file_ids = check_jobs(batch_ids)
     
     if output_file_ids is None:
-        print("No completed jobs found.")
+        print("Some tasks are still in progress. Exiting...")
         return
     # print(f"batch_ids: {batch_ids}, output_file_ids: {output_file_ids}")
     # 下载输出文件
     download_output(output_file_ids, task_tag, parse_filter_jsonl)
 
-
+# 用于从返回体中提取特定信息
+# 输入是一个返回的json对象
+def get_resp_id(data):
+    # 提取 custom_id
+    return data["response"]["body"]["request_id"]
+    
+def get_resp_content(data):
+    # 提取返回的内容,经过字符处理
+    content = data["response"]["body"]["choices"][0]["message"]["content"]
+    stripped_content = content.strip("`json").strip()
+    content_json = json.loads(stripped_content)
+    return content_json
