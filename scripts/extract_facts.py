@@ -16,10 +16,13 @@ TASK="extract"
 
 PROMPT = """
 你是一个资深的出题人，即将出一份试卷。
-任务描述: 请所给文档中选出你认为可以作为出题点的事实，作为考试范围以便后续出题。
+任务描述: 请所给文档中选出若干你认为可以作为出题点的事实，作为考试范围以便后续出题。
 限制条件: 从图片或者有关文字中选择你认为可以作为出题点的事实论点+相关数据，例子(如有)，从文档中#提取#出1-5条事实性信息，并且对该页面的信息价值进行评估
-信息要求：1.不要自己生成额外信息，严格遵照文档抽取,如果文档中对事实论点有相关例子或数据，请把例子和数据也提取出来。2.每个fact必须信息完整 3.如果提取信息来源于其中的图表，不要说“信息如表xx所示”，而应该直接拿出具体的几条数据生成事实信息。
-信息条数：1-5条，取决于文档有用信息的多少。
+信息要求：
+1.对于文字类信息：不要自己生成额外信息，严格遵照文档抽取,如果文档中对事实论点有相关例子或数据，请把例子和数据也提取出来。每个fact必须信息完整 
+2.对于图片类信息：用语言详细描述图片的有关内容，不能只说“图片xx所示”，而应该用语言描述图片的内容。
+3.对于表格类信息：不要说“信息如表xx所示”，而应该以xml格式给出表格的解析。
+4.对于公式类信息：必须给出latex格式的公式代码。
 打分格式：给出一个1-10的分数confidence，1表示这些信息价值很低，10表示信息价值很高。
 打分要求：如果1.内容本身是与知识没有太大关联的，例如编者信息，教材名称等，或2.内容并不完整，例如说“表中xx”但是并没有表中具体信息，则被认为低价值。如果内容完整，且较好地符合了信息要求中的标准，则被认为高价值。
 回复格式json格式严格遵循以下字段，例如：
@@ -27,9 +30,76 @@ PROMPT = """
    "facts":[
      "胶接接头的典型结构包括板件接头、圆柱形接头、锥形及盲孔接头和角接头。",
      "胶接接头的受力状况有拉伸、剪切、剥离与拉离等。", "胶接接头的抗剪切及抗拉伸能力强，而抗拉离及抗剥离能力弱。",
-     "胶接接头的设计要点包括针对胶接件的工作要求正确选择胶粘剂，合理选定接头形式，恰当选取工艺参数。",
-     "胶接接头的应用可以减少应力集中，如将胶接处的板材端部切成斜角，或把胶粘剂和胶接件材料的膨胀系数选择得接近等。"
-  ]
+     "计算径向压力 $p$ 的公式：
+    $$
+    p > \frac{\sqrt{F^2 + \left( \frac{2T}{d} \right)^2}}{z d f}
+    $$
+    其中各符号意义如下：
+    * $F$：轴向载荷
+    * $T$：扭矩
+    * $d$：配合面的公称直径
+    * $z$：配合面的数量
+    * $f$：摩擦系数",
+     "<title="摩擦系数f值">
+        <header>
+            <column>压入法</column>
+            <column>无润滑时</column>
+            <column>有润滑时</column>
+            <column>连接零件材料</column>
+            <column>结合方式、润滑</column>
+            <column>f</column>
+        </header>
+        <row>
+            <pressFit>钢-铸钢</pressFit>
+            <dry>0.11</dry>
+            <lubricated>0.08</lubricated>
+            <material>钢-钢</material>
+            <method>油压扩孔，压力油为矿物油</method>
+            <friction>0.125</friction>
+        </row>
+        <row>
+            <pressFit>钢-结构钢</pressFit>
+            <dry>0.10</dry>
+            <lubricated>0.07</lubricated>
+            <material>钢-钢</material>
+            <method>油压扩孔，压力油为甘油，结合面清洁干净</method>
+            <friction>0.18</friction>
+        </row>
+        <row>
+            <pressFit>钢-优质结构钢</pressFit>
+            <dry>0.11</dry>
+            <lubricated>0.08</lubricated>
+            <material>钢-钢</material>
+            <method>在电炉中加热包容件至300°C</method>
+            <friction>0.14</friction>
+        </row>
+        <row>
+            <pressFit>钢-青铜</pressFit>
+            <dry>0.15-0.20</dry>
+            <lubricated>0.03-0.06</lubricated>
+            <material>钢-青铜</material>
+            <method>在电炉中加热包容件至300°C以后，结合面脱脂</method>
+            <friction>0.2</friction>
+        </row>
+        <row>
+            <pressFit>钢-铸铁</pressFit>
+            <dry>0.12-0.15</dry>
+            <lubricated>0.05-0.10</lubricated>
+            <material>钢-铸铁</material>
+            <method>油压扩孔，压力油为矿物油</method>
+            <friction>0.1</friction>
+        </row>
+        <row>
+            <pressFit>铸铁-铸铁</pressFit>
+            <dry>0.15-0.25</dry>
+            <lubricated>0.15-0.10</lubricated>
+            <material>钢-铝铜合金</material>
+            <method>无润滑</method>
+            <friction>0.10-0.15</friction>
+        </row>
+        </table>
+        "
+        ]
   "confidence": 9
 }
 """
