@@ -124,7 +124,7 @@ def download_result(parse_filter_jsonl,task_tag):
     batch_ids_path = os.path.join(conf.BATCH_DIR, f'batch_ids_{task_tag}.json')
     if not os.path.exists(batch_ids_path):
         print(f"Batch IDs file not found: {batch_ids_path}")
-        return
+        return False
 
     batch_ids = json.load(open(batch_ids_path))
     
@@ -133,10 +133,11 @@ def download_result(parse_filter_jsonl,task_tag):
     
     if output_file_ids is None:
         print("Some tasks are still in progress. Exiting...")
-        return
+        return False
     # print(f"batch_ids: {batch_ids}, output_file_ids: {output_file_ids}")
     # 下载输出文件
     download_output(output_file_ids, task_tag, parse_filter_jsonl)
+    return True
 
 # 用于从返回体中提取特定信息
 # 输入是一个返回的json对象
