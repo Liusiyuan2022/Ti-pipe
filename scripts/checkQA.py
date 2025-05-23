@@ -9,7 +9,6 @@ import time
 import re
 from batchapi import upload_task, download_result, get_resp_id, get_resp_content
 import argparse
-import shutil
 
 TASK="checkQA"
 
@@ -174,8 +173,10 @@ if __name__ == "__main__":
                 })
         upload_task(qas, dump_jsonl, TASK)
     elif args.action == "download":
-        download_result(parse_filter_jsonl, TASK)
-        
+        done = download_result(parse_filter_jsonl, TASK)
+        if not done:
+            print("download result failed")
+            quit()
         # 进行质量分选
         qualified_path = os.path.join(conf.DATASET_DIR, f'qualifiedQA.jsonl')
         unqualified_path = os.path.join(conf.DATASET_DIR, f'unqualifiedQA.jsonl')
@@ -186,6 +187,17 @@ if __name__ == "__main__":
         iter_0_path = os.path.join(conf.DATASET_DIR, f'iter_0.jsonl')
         try :
             quality_sort(qa_path, score_path, qualified_path, unqualified_path)
-            shutil.copy(qualified_path, iter_0_path)
+            # 除了task之外的字段，从qualifyed_path中读取到iter_0_path
+            with open(qualified_path, 'r') as qf, open(iter_0_path, 'w') as iter_f:
+                for line in qf:
+                    data = json.loads(line)
+                    iter_f.write(json.dumps({
+                        "source": data["source"],
+                        "sub_type": data["sub_type"],
+                        "question": data["question"],
+                        "answer": data["answer"],
+                        "analysis": data["analysis"],
+                    }, ensure_ascii=False) + '\n')
+            
         except FileNotFoundError as e:
             pass
