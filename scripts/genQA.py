@@ -29,14 +29,14 @@ PROMPT_R = """你是一个资深的考试出题人,面对以下的若干考点�
             "sub_type": "statement_judgment", 
             "question": "在多盘摩擦离合器中，如果摩擦系数$f$增加，而其他条件不变，那么可传递的最大转矩$T_max$会成比例增加", 
             "answer": "正确", 
-            "analysis": "根据公式$$T_{{max}} = fFR$$，可以看出最大转矩$T_{{max}}$与摩擦系数$f$成正比。因此，在其他条件（F和R）不变的情况下，摩擦系数$f$增加，最大转矩$T_{max}$也会成比例增加。"
+            "analysis": "根据公式$$T_{{max}} = fFR$$，可以看出最大转矩$T_{{max}}$与摩擦系数$f$成正比。因此，在其他条件（F和R）不变的情况下，摩擦系数$f$增加，最大转矩$T_{{max}}$也会成比例增加。"
         }},
         {{
             "task": "Reasoning",
             "sub_type": "calculation", 
             "question": "假设某多盘摩擦离合器的摩擦系数f为0.5，摩擦力的合力F为1000 N，作用在平均半径R为0.2 m的圆周上，计算该离合器可传递的最大转矩T_max。", 
             "answer": "100 N·m", 
-            "analysis": "根据公式$$T_{{max}} = fFR$$，代入已知数值：$$T_{{max}} = 0.5 \\times 1000 \, \\text{N} \\times 0.2 \, \\text{m} = 100 \, \\text{N·m}$$。因此，该离合器可传递的最大转矩为100 N·m。"
+            "analysis": "根据公式$$T_{{max}} = fFR$$，代入已知数值：$$T_{{max}} = 0.5 \\times 1000 \, \\text{{N}} \\times 0.2 \, \\text{{m}} = 100 \, \\text{{N·m}}$$。因此，该离合器可传递的最大转矩为100 N·m。"
         }},
         {{
             "task": "Reasoning", 
