@@ -15,7 +15,7 @@ TASK="checkQA"
 
 
 PROMPT = """你是一个资深的考试出题人,你需要对已经出好的题目进行审核。
-所传入的内容是一个出好的题目，包含四个字段“type”、“question”、“answer”、“analysis”，分别表示题目类型、题目内容、答案和解析。
+所传入的内容是一个出好的题目，包含四个字段“sub_type”、“question”、“answer”、“analysis”，分别表示题目类型、题目内容、答案和解析。
 你的任务是判断题目的质量，给出一个分数，范围是0-10分，0分表示题目质量极差，10分表示题目质量极好。
 以下是判断标准：
 1. 问题虽然基于教材所出，但考生考场上不知道教材内容，也不知道是哪本书，所以，问题必须围绕知识点，而不能是对于某张图片，某张表格或者某本书信息的提问。如，"表3提里面可以看到什么"、"图2中可以看到什么"、"12.2节介绍了什么"等问题都是不合格的。
@@ -47,9 +47,9 @@ def quality_sort(qa_path, quality_path, qualified_path, unqualified_path):
         for line in f:
             data = json.loads(line)
             # 提取 "id" 和 "score" 字段
-            id = data.get("id", "N/A")
-            score = data.get("score", "N/A")
-            reason = data.get("reason", "N/A")
+            id = data["id"]
+            score = data["score"]
+            reason = data["reason"]
             quality_data.append({
                 "id": id,
                 "score": score,
@@ -161,15 +161,11 @@ if __name__ == "__main__":
         with open(qa_path, 'r') as f:
             for line in f:
                 data = json.loads(line)
-                type = data.get("sub_type", "N/A")
-                question = data.get("question", "N/A")
-                answer = data.get("answer", "N/A")
-                analysis = data.get("analysis", "N/A")
                 qas.append({
-                    "type": type,
-                    "question": question,
-                    "answer": answer,
-                    "analysis": analysis
+                    "sub_type": data["sub_type"],
+                    "question": data["question"],
+                    "answer": data["answer"],
+                    "analysis": data["analysis"]
                 })
         upload_task(qas, dump_jsonl, TASK)
     elif args.action == "download":

@@ -120,19 +120,15 @@ def parse_filter_jsonl(input_path, result_path):
             # 提取返回的内容,经过字符处理
             try:
                 content = get_resp_content(data)
-                
-                sub_type = content.get("sub_type", "N/A")
-                question = content.get("question", "N/A")
-                answer   = content.get("answer", "N/A")
-                analysis = content.get("analysis", "N/A")
                 with open(result_path, 'a') as out_f:
                     out_f.write(json.dumps({
-                        "source": source,
+                        "source"  : source,
+                        # iter 没有字段task
                         # "task": task,
-                        "sub_type": sub_type,
-                        "question": question,
-                        "answer": answer,
-                        "analysis": analysis
+                        "sub_type": content["sub_type"],
+                        "question": content["question"],
+                        "answer"  : content["answer"],
+                        "analysis": content["analysis"]
                     }, ensure_ascii=False) + '\n')
                 
             except json.JSONDecodeError:

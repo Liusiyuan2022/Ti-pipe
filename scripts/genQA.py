@@ -144,19 +144,14 @@ def parse_filter_jsonl(input_path, result_path):
             try:
                 content = get_resp_content(data)
                 for item in content["questions"]:
-                    task = item.get("task", "N/A")
-                    sub_type = item.get("sub_type", "N/A")
-                    question = item.get("question", "N/A")
-                    answer = item.get("answer", "N/A")
-                    analysis = item.get("analysis", "N/A")
                     with open(result_path, 'a') as out_f:
                         out_f.write(json.dumps({
                             "source": source,
-                            "task": task,
-                            "sub_type": sub_type,
-                            "question": question,
-                            "answer": answer,
-                            "analysis": analysis
+                            "task": item["task"],
+                            "sub_type": item["sub_type"],
+                            "question": item["question"],
+                            "answer": item["answer"],
+                            "analysis": item["analysis"]
                         }, ensure_ascii=False) + '\n')
                 
             except json.JSONDecodeError:
