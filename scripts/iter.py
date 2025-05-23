@@ -11,11 +11,12 @@ from batchapi import upload_task, download_result, get_resp_id, get_resp_content
 import argparse
 import random
 
-TASK="iter_0"
+TASK=""
 
 # 创建task标签
 # 找到下个任务的TASK号，同时返回最近的iter序号
 def get_latest_iter():
+    global TASK
     # 在文件夹中查找iter_*.jsonl文件
     iter_files = [f for f in os.listdir(conf.DATASET_DIR) if f.startswith('iter_') and f.endswith('.jsonl')]
     # 找到最新的iter号
@@ -30,19 +31,19 @@ def pick_one_method():
 
 PROMPT = """你是一个资深的模型数据工程师,你需要对已经出好的问答对进行优化重写。
 [任务描述]：你需要对给定的prompt进行重写，使用更复杂的语言和结构来构造重写问答对以及相应的解析，以使得这些著名的AI系统（例如chatgpt和GPT4）更难处理。同时，重写的问答对必须合理，并且能够被人类理解和响应。
-[核心方法]：{{}}
+[核心方法]：{}
 [输入]：问题question，答案answer，解析analysis，题型sub_type，以及所基于的知识块base_knowledge。
 [限制条件]：1.你应该尽量避免使重写的prompt变得冗长，重写的prompt只能在原始prompt中添加10到20个单词。2.处理后的题型sub_type不能改变，仍然是对应题型 3. 可以使用知识块中的信息进行一定程度的丰富
 以下是你需要处理的具体内容：
-{{}}
+{}
 [输出格式]：请严格按照json格式返回重写过的问答对，只包含题型sub_type,问题question，答案answer，解析analysis四部分
 [输出示例]：
-{
+{{
     "sub_type": "statement_judgment",
     "question": "在多盘摩擦离合器中，如果摩擦系数f增加三倍，，而其他条件不变，那么可传递的最大转矩T_max会增加九倍", 
     "answer": "错误", 
     "analysis": "根据公式$$T_{{max}} = fFR$$，可以看出最大转矩$T_{{max}}$与摩擦系数$f$成正比。因此，在其他条件（F和R）不变的情况下，摩擦系数$f$增加三倍，最大转矩$T_{{max}}$应该增加三倍，而不是九倍。"
-}
+}}
 """
 
 METHOD_LIST = [
@@ -82,7 +83,7 @@ def dump_jsonl(i, prev_data, f):
         
                 
     f.write(json.dumps({
-        "custom_id": f"request-{i}-<{method}>-<{source}>",
+        "custom_id": f"{i}-<{method}>-<{source}>",
         "method": "POST",
         "url": "/v4/chat/completions",
         "body": {
@@ -110,7 +111,7 @@ def parse_filter_jsonl(input_path, result_path):
             # 提取 custom_id
             request_id = get_resp_id(data)
             # 形如ssource<EEdesign.pdf_0.png>,提取
-            pattern = r"request-(\d+)-<([^>]*)>-<([^>]*)>"
+            pattern = r"(\d+)-<([^>]*)>-<([^>]*)>"
             match = re.search(pattern, request_id)
             if match:
                 source = match.group(3)
@@ -163,8 +164,8 @@ if __name__ == "__main__":
         # 每行是一个json对象，组织成一个列表
         # 包括问答对信息和对应的facts部分
         prev_data = []
-        with open(prev_iter_path, 'w') as prev_f:
-            for line in tqdm(prev_f, desc="Processing data to next iter"):
+        with open(prev_iter_path, 'r') as prev_f:
+            for line in prev_f:
                 data = json.loads(line)
                 sub_type = data["sub_type"]
                 question = data["question"]
@@ -180,7 +181,6 @@ if __name__ == "__main__":
                     "analysis": analysis,
                     "base_knowledge": base_knowledge,
                 })
-        
         upload_task(prev_data, dump_jsonl, TASK)
     elif args.action == "download":
         get_latest_iter()

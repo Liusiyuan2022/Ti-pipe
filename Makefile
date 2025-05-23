@@ -6,7 +6,7 @@ PYTHON = /home/liusiyuan/.conda/envs/Ti/bin/python
 SCRIPT_EXTRACT = scripts/extract_facts.py
 SCRIPT_GENQA = scripts/genQA.py
 SCRIPT_CHECKQA = scripts/checkQA.py
-
+SCRIPT_ITER = scripts/iter.py
 ACTION = upload
 # ACTION = download
 
@@ -24,6 +24,9 @@ genQA:
 
 checkQA:
 	$(PYTHON) $(SCRIPT_CHECKQA) --action $(ACTION)
+
+iter:
+	$(PYTHON) $(SCRIPT_ITER) --action $(ACTION)
 
 clean_data:
 	rm -rf ./batch/*
